@@ -14,7 +14,7 @@ class Pesquisas extends MY_Controller {
       $v = $query->result_array();
 
       if(count($v) === 0){
-         return   parent::exibeErro('Nenhuma informação encontrada <a class="btn btn-default" href="pesquisas/cadastrarPesquisa">Cadastre uma pesquisa</a>');
+          parent::exibeErro('Nenhuma informação encontrada');
       }
         $this->data['titulo'] = 'Apresentar as pesquisas do usuário';
         $this->data['conteudo'] = $this->html($v);
@@ -23,7 +23,7 @@ class Pesquisas extends MY_Controller {
 
     public function info($id){
       //Apresentar estatísticas sobre a pesquisa
-      $dados = $this->db->query('select * from pesquisa join login on id_login = autor where status = \'1\' and id_pesquisa = '.$id.' and pesquisa.perfil = \'1\'')->result_array();
+      $dados = $this->db->query('select * from pesquisa join login on id_login = autor where status = \'1\' and id_pesquisa = '.$id.'')->result_array();
 
 
 
@@ -42,6 +42,8 @@ class Pesquisas extends MY_Controller {
                                     	id_questao in (SELECT id_questao FROM questao WHERE id_pesquisa = '.$id.')
                                     GROUP BY texto
                                     ORDER BY id_questao')->result_array();
+
+
 
       if(count($dados) === 0){
         return  parent::exibeErro('Nenhuma informação encontrada');
@@ -79,7 +81,7 @@ class Pesquisas extends MY_Controller {
 
       if($v[0]['status'] === '1'){
         //Se o questionário ainda não foi respondido pelo usuário exibir respostas
-        parent::exibeErro('Obrigado por participar desta pesquisa');
+        parent::exibeErro('Pesquisa finalizada');
       }
 
       $query = $this->db->query('select * FROM `questao` WHERE id_questao not in (SELECT fk_questao from escolha where fk_login = '.$id_user.')   and id_pesquisa = '.$id.' limit 1');//Gambiarra aqui melhorar código
@@ -92,7 +94,7 @@ class Pesquisas extends MY_Controller {
             $this->load->model('Crud_model', 'p');
             $dados['status']   = '1';
             $this->p->update('id_login',$id_user,$dados,'pesquisa_login');
-             parent::exibeErro('Obrigado por participar desta pesquisa');
+             parent::exibeErro('Terminou aqui');
           }
           $query = $this->db->query('select * from questao  where  id_pesquisa = '.$id.' limit 1');
           $v = $query->result_array();
@@ -175,11 +177,64 @@ public function cadastrar(){
 }
 
 
-public function publicar($id){
-  $dados['status'] = 1;
+
+
+public function alterarPesquisa(){
+  $dados = $this->input->post();
+  if(empty($dados['titulo'])){
+    parent::exibeErro('Preencha o título');
+  }
+  if(empty($dados['dt_ini'])){
+    parent::exibeErro('Preencha a data de início');
+  }
+  if(empty($dados['dt_fim'])){
+    parent::exibeErro('Preencha a data de finalização');
+  }
+  if(empty($dados['descricao'])){
+    parent::exibeErro('Preencha a descrição');
+  }
+
+  //$dados['dt_ini'] = parent::inverteData($dados['dt_ini']); //Formata data para o padrão correto para inserção
+  //$dados['dt_fim'] = parent::inverteData($dados['dt_fim']); //Formata data para o padrão correto para inserção
+
+  //$dados['status'] = 0;
+  //$dados['autor'] = $this->session->id;
+
   $this->load->model('Crud_model', 'p');
-  $this->p->update('id_pesquisa',$id,$dados,'pesquisa');
-  parent::exibeErro('pesquisa publicada.');
+  $query = $this->p->update('id_pesquisa',$dados['id_pesquisa'],$dados,'pesquisa');
+  parent::exibeErro('pesquisa alterada.');
+}
+
+
+
+public function publicar($id){
+
+  $id_user = $this->db->query('select autor from pesquisa where id_pesquisa = '.$id.'')->result_array();
+  $id_user = $id_user[0]['autor'];
+
+  if($this->session->id = $id_user){
+    $dados['status'] = 1;
+    $this->load->model('Crud_model', 'p');
+    $this->p->update('id_pesquisa',$id,$dados,'pesquisa');
+    parent::exibeErro('pesquisa publicada.');
+  }
+}
+
+public function alterar($id){
+  $id_user = $this->session->id;
+  $pesquisa = $this->db->query('select * from pesquisa where autor = '.$id_user.' and id_pesquisa = '.$id.' ')->result_array();
+
+  if(count($pesquisa) > 0){
+    $questoes =  $this->db->query('select * from questao where id_pesquisa = '.$id.' ')->result_array();
+
+
+      $this->data['pesquisa'] = $pesquisa;
+      $this->data['questao']  = $questoes;
+      $this->data['conteudo'] = $this->parser->parse('telas/altpesquisas',$this->data, true);
+      return $this->parser->parse('layout/landing', $this->data);
+  }
+
+    parent::exibeErro('Nenuma informação encontrada.');
 }
 
 
@@ -233,9 +288,17 @@ public function publicar($id){
           $html .=  '<a href="'.$url.'pesquisas/questao/'.$v[$i]['id_pesquisa'].'" class="btn btn-primary btn-icon btn-round"><i class="fa fa-check"></i></a>';
         }
 
+        if($v[$i]['status'] === '0'){
+          $html .=  '<a href="'.$url.'pesquisas/publicar/'.$v[$i]['id_pesquisa'].'" class="btn btn-primary btn-icon btn-round"><i class="fa fa-share-alt"></i></a>';
+        }
+
+
+        if(($v[$i]['autor'] === $this->session->id) && ($v[$i]['status'] === '0')){
+          $html .=  '<a href="'.$url.'questoes/criar/'.$v[$i]['id_pesquisa'].'" class="btn btn-primary btn-icon btn-round"><i class="fa fa-plus"></i></a>';
+        }
 
         if($v[$i]['autor'] === $this->session->id){
-          $html .=  '<a href="'.$url.'questoes/criar/'.$v[$i]['id_pesquisa'].'" class="btn btn-primary btn-icon btn-round"><i class="fa fa-plus"></i></a>';
+          $html .=  '<a href="'.$url.'pesquisas/alterar/'.$v[$i]['id_pesquisa'].'" class="btn btn-primary btn-icon btn-round"><i class="fa fa-edit"></i></a>';
         }
 
         $html .=      '
