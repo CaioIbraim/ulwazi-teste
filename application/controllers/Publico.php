@@ -30,7 +30,7 @@ class Publico extends CI_Controller {
                                         <hr>
                                         <h2>Pesquisas publicadas</h2>
                                         <hr>
-                                        </div>';
+                                      </div>';
 
         $this->data['conteudo'] .= $this->htmlPesquisas($dados);
 
@@ -40,14 +40,76 @@ class Publico extends CI_Controller {
 
 
 
-    public function pesquisa($nome = '', $titulo = ''){
-       //Utilizar biblioteca URLIFY para manobrar o acesso externo a plataforma
-       header ('Content-type: text/html; charset=ISO-8859-1');
-       //Rertorna a pesquisa pelo nome do autor e o tiulo da pesquisa
-       echo $this->utilidades->sanitizeString($nome);
-       echo '<br>';
-       echo $titulo;
+    public function pesquisa($nome = ''){
 
+        $this->load->model('Crud_model', 'p');
+        $dados = $this->p->select_where('link',$nome,'pesquisa');
+
+
+
+
+        if(count($dados) > 0){
+          $escolhas = $this->db->query('select 	id_questao,	texto,
+                                          SUM(opc_escolhida = \'a\') AS A,
+                                          SUM(opc_escolhida = \'b\') AS B,
+                                          SUM(opc_escolhida = \'c\') AS C,
+                                          SUM(opc_escolhida = \'d\') AS D,
+                                          SUM(opc_escolhida = \'e\') AS E
+                                        FROM
+                                          escolha,
+                                            questao
+                                        WHERE
+                                          fk_questao = id_questao
+                                        AND
+                                          id_questao in (SELECT id_questao FROM questao WHERE id_pesquisa = '.$dados[0]['id_pesquisa'].')
+                                        GROUP BY texto
+                                        ORDER BY id_questao')->result_array();
+        }
+        echo '<pre>';
+
+
+        echo 'select 	id_questao,	texto,
+                                        SUM(opc_escolhida = \'a\') AS A,
+                                        SUM(opc_escolhida = \'b\') AS B,
+                                        SUM(opc_escolhida = \'c\') AS C,
+                                        SUM(opc_escolhida = \'d\') AS D,
+                                        SUM(opc_escolhida = \'e\') AS E
+                                      FROM
+                                        escolha,
+                                          questao
+                                      WHERE
+                                        fk_questao = id_questao
+                                      AND
+                                        id_questao in (SELECT id_questao FROM questao WHERE id_pesquisa = '.$dados[0]['id_pesquisa'].')
+                                      GROUP BY texto
+                                      ORDER BY id_questao';
+
+
+         die();
+
+
+
+
+
+        $this->data['conteudo'] = '<h3>'.$dados[0]['titulo'].'</h3>
+                                    <hr>
+                                      <div class="col-md-12">
+                                        <hr>
+
+                                            <p align = "left">
+                                            '.$dados[0]['descricao'].'
+                                            </p>
+                                        <hr>
+
+                                        <h4>Estatísticas</h4>
+
+
+
+                                      </div>';
+
+
+
+        $this->parser->parse('layout/landing_p', $this->data);
     }
 
 
@@ -125,7 +187,7 @@ public function htmlPesquisas($dados){
                              <div class="col-md-6">
                                <h4 class="title">'.$dados[$i]['titulo'].'</h4>
                                <p><small class="title"> Autor da pesquisa : '.$dados[$i]['nome'].' </small></p>
-                               <a href="'.$url.'publico/pesquisa/'.$dados[$i]['nome'].'/'.$dados[$i]['titulo'].'" class="btn btn-primary">Saiba Mais</a>
+                               <a href="'.$url.'publico/pesquisa/'.$dados[$i]['link'].'" class="btn btn-primary">Saiba Mais</a>
                             </div>
                        </div>';
           }
